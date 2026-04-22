@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>醫師訪視媒合系統</title>
+  
+  <!-- 引入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 FontAwesome 圖示 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 引入 SheetJS 用於 Excel 匯出與匯入 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    /* 自訂捲軸樣式 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    /* 隱藏元素用 */
+    .hidden-state { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+  <!-- 載入中畫面 -->
+  <div id="loading-screen" class="fixed inset-0 bg-slate-50 z-50 flex flex-col items-center justify-center">
+    <i class="fa-solid fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+    <p class="text-slate-500 font-bold tracking-wider">系統連線中，請稍候...</p>
+  </div>
+
+  <!-- 登入畫面 -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-900/10 z-40 flex items-center justify-center backdrop-blur-sm hidden-state">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-[90%] max-w-md border border-slate-100 transform transition-all">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+          <i class="fa-solid fa-user-check text-2xl text-blue-600"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900">訪視系統登入</h2>
+        <p class="text-slate-500 text-sm mt-2">請輸入您的使用者名稱以載入個人紀錄</p>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">使用者名稱 (Karen 或 Shirley)</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="login-emp-id" placeholder="請輸入名稱..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+          </div>
+        </div>
+        <button id="btn-login" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all shadow-md mt-4 flex justify-center items-center gap-2">
+          進入系統 <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主系統畫面 -->
+  <div id="main-app" class="hidden-state">
+    <!-- 導覽列 -->
+    <nav class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-10 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 p-2 rounded-lg shadow-sm">
+          <i class="fa-solid fa-notes-medical text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight">訪視媒合系統</h1>
+          <p class="text-xs text-slate-500 font-medium" id="nav-user-info">目前使用者：載入中...</p>
+        </div>
+      </div>
+      <div class="flex bg-slate-100 p-1 rounded-xl shadow-inner">
+        <button id="tab-personal" class="px-6 py-2 rounded-lg text-sm font-bold transition-all bg-white shadow text-blue-600">
+          <i class="fa-solid fa-user-clock mr-1"></i> 個人紀錄
+        </button>
+        <button id="tab-admin" class="px-6 py-2 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700">
+          <i class="fa-solid fa-clipboard-list mr-1"></i> 行政媒合
+        </button>
+        <button id="btn-logout" class="px-4 py-2 rounded-lg text-sm font-bold transition-all text-red-500 hover:bg-red-50 ml-2">
+          登出
+        </button>
+      </div>
+    </nav>
+
+    <!-- 內容區 -->
+    <main class="max-w-7xl mx-auto p-4 sm:p-8">
+      
+      <!-- 個人紀錄視圖 (醫師端) -->
+      <div id="view-personal" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- 左側：新增可用時間 -->
+        <div class="space-y-6">
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="font-bold text-lg mb-4 flex items-center gap-2 text-slate-800">
+              <i class="fa-solid fa-calendar-plus text-blue-600"></i> 開放可訪視時間
+            </h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">選擇日期</label>
+                <input type="date" id="input-date" class="w-full px-4 py-2 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">選擇時段</label>
+                <select id="input-period" class="w-full px-4 py-2 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="早上">早上 (09:00 - 12:00)</option>
+                  <option value="下午">下午 (14:00 - 17:00)</option>
+                </select>
+              </div>
+              <button id="btn-submit-avail" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i> 儲存至雲端
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側：個人清單 -->
+        <div class="lg:col-span-2 space-y-6">
+          
+          <!-- 我的待媒合紀錄 -->
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="font-bold text-xl mb-4 flex items-center gap-2 text-slate-800">
+              <i class="fa-regular fa-clock text-amber-500"></i> 我的預約紀錄 (待行政確認)
+            </h2>
+            <div id="personal-pending-list" class="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+              <!-- JS 動態插入 -->
+            </div>
+          </div>
+
+          <!-- 我的已確認行程 -->
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h2 class="font-bold text-xl flex items-center gap-2 text-green-600">
+                <i class="fa-solid fa-check-circle"></i> 已確認訪視行程
+              </h2>
+              <button id="btn-export-personal" class="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-green-700 shadow flex items-center gap-1 transition-all">
+                <i class="fa-solid fa-file-excel"></i> 匯出
+              </button>
+            </div>
+            <div id="personal-matched-list" class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              <!-- JS 動態插入 -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 行政媒合視圖 (管理員端) -->
+      <div id="view-admin" class="hidden-state space-y-8 animate-fade-in">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <!-- 左側：受訪單位管理 -->
+          <div class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-lg flex items-center gap-2">
+                  <i class="fa-regular fa-building text-blue-600"></i> 單位管理
+                </h2>
+                <div class="flex gap-2">
+                  <button id="btn-export-units" title="匯出單位清單" class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded font-bold hover:bg-green-100 transition-all"><i class="fa-solid fa-download"></i> 匯出</button>
+                  <button id="btn-import-units-trigger" title="匯入Excel單位資料" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded font-bold hover:bg-blue-100 transition-all"><i class="fa-solid fa-upload"></i> 匯入</button>
+                  <input type="file" id="file-import-units" accept=".xlsx, .xls, .csv" class="hidden-state">
+                </div>
+              </div>
+              <div class="space-y-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <p class="text-xs font-bold text-slate-500 mb-2">新增受訪單位</p>
+                <input type="text" id="admin-unit-name" placeholder="單位名稱" class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-400">
+                <input type="text" id="admin-unit-address" placeholder="詳細地址" class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-400">
+                <button id="btn-add-unit" class="w-full bg-slate-800 text-white p-2 rounded-lg text-sm font-bold hover:bg-slate-900 transition-all">
+                  <i class="fa-solid fa-plus mr-1"></i> 新增單位
+                </button>
+              </div>
+              <div class="space-y-2 max-h-64 overflow-y-auto pr-2" id="admin-unit-list">
+                <!-- JS 動態插入 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：媒合操作區 -->
+          <div class="lg:col-span-2 space-y-6">
+            
+            <!-- 待媒合清單 (顯示所有人) -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h2 class="font-bold text-xl mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-users-gear text-blue-600"></i> 全院待媒合清單
+              </h2>
+              <div class="grid grid-cols-1 gap-4" id="admin-pending-list">
+                <!-- JS 動態插入 -->
+              </div>
+            </div>
+
+            <!-- 全院已確認清單 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <h2 class="font-bold text-xl flex items-center gap-2 text-green-600">
+                  <i class="fa-solid fa-clipboard-check"></i> 全院已確認行程表
+                </h2>
+                <button id="btn-export-admin" class="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-green-700 shadow flex items-center gap-1 transition-all">
+                  <i class="fa-solid fa-file-excel"></i> 匯出總表
+                </button>
+              </div>
+              <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left whitespace-nowrap">
+                  <thead class="bg-slate-50">
+                    <tr class="text-xs font-bold text-slate-500 uppercase border-b">
+                      <th class="py-3 px-4">日期時段</th>
+                      <th class="py-3 px-4">訪視人員</th>
+                      <th class="py-3 px-4">受訪單位</th>
+                      <th class="py-3 px-4">詳細地址</th>
+                      <th class="py-3 px-4">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 text-sm" id="admin-matched-list">
+                    <!-- JS 動態插入 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Firebase 雲端同步與核心邏輯 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    // 系統狀態
+    const state = {
+      user: null,         // Firebase Auth 用戶
+      currentView: 'personal', // 'personal' | 'admin'
+      empData: {          // 本地暫存姓名
+        id: localStorage.getItem('empId') || '',
+        name: localStorage.getItem('empName') || ''
+      },
+      data: {
+        availability: [], // 所有預約紀錄
+        assignments: [],  // 所有已媒合紀錄
+        units: []         // 所有單位清單
+      }
+    };
+
+    // --- Firebase 初始化 ---
+    let db, auth, appId;
+    
+    async function initFirebase() {
+      try {
+        const firebaseConfig = {
+          apiKey: "AIzaSyA9KdHt1Aywhz8FsCjEzogwnWJjGA5ZM98",
+          authDomain: "work-use-7df52.firebaseapp.com",
+          projectId: "work-use-7df52",
+          storageBucket: "work-use-7df52.firebasestorage.app",
+          messagingSenderId: "213419380267",
+          appId: "1:213419380267:web:69551bca8b888533d0a46e",
+          measurementId: "G-P5GEPFBW2K"
+        };
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        appId = 'doctor-match-cloud-v1';
+
+        // 登入驗證 (強制使用匿名登入，避免自訂金鑰與平台預設 Token 衝突)
+        await signInAnonymously(auth);
+
+        onAuthStateChanged(auth, (user) => {
+          if (user) {
+            state.user = user;
+            setupRealtimeListeners();
+            checkLoginState();
+          }
+        });
+      } catch (error) {
+        console.error("Firebase 初始化失敗:", error);
+        alert("系統連線發生錯誤，請確認網路或 Firebase 設定。");
+        ui.loading.classList.add('hidden-state');
+      }
+    }
+
+    function setupRealtimeListeners() {
+      if (!state.user) return;
+      
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'availability'), (snapshot) => {
+        state.data.availability = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderUI();
+      });
+
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'assignments'), (snapshot) => {
+        state.data.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderUI();
+      });
+
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'units'), (snapshot) => {
+        state.data.units = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderUI();
+      });
+    }
+
+    // 畫面切換控制
+    const ui = {
+      loading: document.getElementById('loading-screen'),
+      login: document.getElementById('login-screen'),
+      app: document.getElementById('main-app'),
+      viewPersonal: document.getElementById('view-personal'),
+      viewAdmin: document.getElementById('view-admin'),
+      tabPersonal: document.getElementById('tab-personal'),
+      tabAdmin: document.getElementById('tab-admin'),
+      navUserInfo: document.getElementById('nav-user-info')
+    };
+
+    function checkLoginState() {
+      ui.loading.classList.add('hidden-state');
+      if (state.empData.id) {
+        ui.login.classList.add('hidden-state');
+        ui.app.classList.remove('hidden-state');
+        ui.navUserInfo.innerHTML = `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">${state.empData.id}</span>`;
+        renderUI();
+      } else {
+        ui.login.classList.remove('hidden-state');
+        ui.app.classList.add('hidden-state');
+      }
+    }
+
+    function switchTab(viewName) {
+      state.currentView = viewName;
+      if (viewName === 'personal') {
+        ui.viewPersonal.classList.remove('hidden-state');
+        ui.viewAdmin.classList.add('hidden-state');
+        ui.tabPersonal.className = "px-6 py-2 rounded-lg text-sm font-bold transition-all bg-white shadow text-blue-600";
+        ui.tabAdmin.className = "px-6 py-2 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
+      } else {
+        ui.viewPersonal.classList.add('hidden-state');
+        ui.viewAdmin.classList.remove('hidden-state');
+        ui.tabAdmin.className = "px-6 py-2 rounded-lg text-sm font-bold transition-all bg-white shadow text-blue-600";
+        ui.tabPersonal.className = "px-6 py-2 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
+      }
+    }
+
+    // --- 事件綁定 ---
+    
+    // 登入按鈕
+    document.getElementById('btn-login').addEventListener('click', () => {
+      const idInput = document.getElementById('login-emp-id').value.trim();
+      
+      if (!idInput) return alert('請輸入使用者名稱');
+      
+      const validUsers = ['karen', 'shirley'];
+      const normalizedInput = idInput.toLowerCase();
+
+      if (!validUsers.includes(normalizedInput)) {
+        return alert('無效的使用者。僅允許 Karen 或 Shirley 登入。');
+      }
+      
+      const name = normalizedInput.charAt(0).toUpperCase() + normalizedInput.slice(1);
+      localStorage.setItem('empId', name);
+      localStorage.setItem('empName', name);
+      state.empData = { id: name, name: name };
+      checkLoginState();
+    });
+
+    // 登出按鈕
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      localStorage.removeItem('empId');
+      localStorage.removeItem('empName');
+      state.empData = { id: '', name: '' };
+      document.getElementById('login-emp-id').value = '';
+      checkLoginState();
+    });
+
+    // 頁籤切換
+    ui.tabPersonal.addEventListener('click', () => switchTab('personal'));
+    ui.tabAdmin.addEventListener('click', () => switchTab('admin'));
+
+    // 新增個人預約時間
+    document.getElementById('btn-submit-avail').addEventListener('click', async () => {
+      const date = document.getElementById('input-date').value;
+      const period = document.getElementById('input-period').value;
+      
+      if (!date) return alert('請選擇日期');
+      if (!state.user) return alert('系統未連線');
+
+      const btn = document.getElementById('btn-submit-avail');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 儲存中...`;
+      btn.disabled = true;
+
+      try {
+        const ref = collection(db, 'artifacts', appId, 'public', 'data', 'availability');
+        await addDoc(ref, {
+          empId: state.empData.id,
+          userName: state.empData.id,
+          date: date,
+          timePeriod: period,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        });
+        document.getElementById('input-date').value = '';
+        alert('時間已成功記錄至雲端！');
+      } catch (e) {
+        console.error(e);
+        alert('儲存失敗');
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    });
+
+    // 新增單位
+    document.getElementById('btn-add-unit').addEventListener('click', async () => {
+      const name = document.getElementById('admin-unit-name').value.trim();
+      const address = document.getElementById('admin-unit-address').value.trim();
+      
+      if (!name) return alert('單位名稱為必填');
+      if (!state.user) return;
+
+      try {
+        const ref = collection(db, 'artifacts', appId, 'public', 'data', 'units');
+        await addDoc(ref, { name, address: address || '暫無地址' });
+        document.getElementById('admin-unit-name').value = '';
+        document.getElementById('admin-unit-address').value = '';
+      } catch (e) {
+        console.error(e);
+        alert('新增單位失敗');
+      }
+    });
+
+    // --- Firebase 操作函式掛載到 window ---
+    window.deleteAvailability = async (id) => {
+      if(confirm('確定要刪除這筆紀錄嗎？')) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', id));
+      }
+    };
+
+    window.deleteUnit = async (id) => {
+      if(confirm('確定要刪除該單位嗎？')) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'units', id));
+      }
+    };
+
+    window.cancelMatch = async (assignId, availId) => {
+      if(confirm('確定要取消這個媒合嗎？這會將行程退回「待媒合」狀態。')) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assignments', assignId));
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', availId), { status: 'pending' });
+      }
+    };
+
+    window.matchVisit = async (availId) => {
+      const unitSelect = document.getElementById(`unit-select-${availId}`);
+      const timeInput = document.getElementById(`time-input-${availId}`);
+      
+      const unitId = unitSelect.value;
+      const preciseTime = timeInput.value.trim();
+
+      if (!unitId) return alert('請選擇指派的單位');
+      if (!preciseTime) return alert('請填寫具體的訪視時間 (例: 09:30)');
+
+      const unit = state.data.units.find(u => u.id === unitId);
+      const avail = state.data.availability.find(a => a.id === availId);
+
+      try {
+        // 1. 建立媒合紀錄
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'assignments'), {
+          availabilityId: avail.id,
+          empId: avail.empId,
+          userName: avail.userName || avail.empId,
+          date: avail.date,
+          timePeriod: avail.timePeriod,
+          preciseTime: preciseTime,
+          unitName: unit.name,
+          unitAddress: unit.address,
+          matchedAt: new Date().toISOString()
+        });
+        
+        // 2. 更新原預約狀態
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', avail.id), { 
+          status: 'matched' 
+        });
+      } catch (e) {
+        console.error(e);
+        alert('媒合操作失敗');
+      }
+    };
+
+    // 核心渲染邏輯
+    function renderUI() {
+      if (!state.empData.id) return; // 未登入不渲染
+
+      // --- 渲染個人視圖 (醫師端) ---
+      
+      // 1. 過濾出登入者的待媒合紀錄
+      const myPending = state.data.availability.filter(a => a.empId === state.empData.id && a.status === 'pending')
+                                               .sort((a,b) => a.date.localeCompare(b.date));
+      const personalPendingEl = document.getElementById('personal-pending-list');
+      if (myPending.length === 0) {
+        personalPendingEl.innerHTML = `<p class="text-slate-400 text-sm italic text-center py-4">目前沒有待確認的預約紀錄</p>`;
+      } else {
+        personalPendingEl.innerHTML = myPending.map(item => `
+          <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div>
+              <p class="font-bold text-slate-800">${item.date}</p>
+              <p class="text-xs font-bold text-slate-500 bg-white px-2 py-0.5 rounded border mt-1 inline-block">${item.timePeriod}</p>
+            </div>
+            <button onclick="deleteAvailability('${item.id}')" class="text-slate-300 hover:text-red-500 p-2 transition-colors">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `).join('');
+      }
+
+      // 2. 過濾出登入者的已媒合行程
+      const myMatches = state.data.assignments.filter(a => a.empId === state.empData.id)
+                                              .sort((a,b) => a.date.localeCompare(b.date));
+      const personalMatchedEl = document.getElementById('personal-matched-list');
+      if (myMatches.length === 0) {
+        personalMatchedEl.innerHTML = `<p class="text-slate-400 text-sm italic text-center py-4">目前沒有已排定的行程</p>`;
+      } else {
+        personalMatchedEl.innerHTML = myMatches.map(item => `
+          <div class="bg-green-50/50 p-4 rounded-xl border border-green-100 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-green-500"></div>
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-2">
+              <span class="text-sm font-bold bg-white text-green-700 px-3 py-1 rounded-full border border-green-200 shadow-sm inline-block w-max">
+                ${item.date} ${item.preciseTime}
+              </span>
+            </div>
+            <p class="font-bold text-lg text-slate-800">${item.unitName}</p>
+            <p class="text-sm text-slate-500 flex items-start gap-1 mt-1">
+              <i class="fa-solid fa-location-dot text-red-400 mt-1"></i> ${item.unitAddress}
+            </p>
+          </div>
+        `).join('');
+      }
+
+
+      // --- 渲染管理員視圖 (行政端) ---
+      
+      // 1. 單位清單
+      const unitsHtml = state.data.units.map(u => `
+        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="truncate pr-4">
+            <p class="font-bold text-sm text-slate-800">${u.name}</p>
+            <p class="text-xs text-slate-500 truncate">${u.address}</p>
+          </div>
+          <button onclick="deleteUnit('${u.id}')" class="text-slate-300 hover:text-red-500 flex-shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+      document.getElementById('admin-unit-list').innerHTML = state.data.units.length ? unitsHtml : `<p class="text-slate-400 text-xs text-center py-2">無單位資料</p>`;
+
+      // 產生單位的下拉選單選項
+      const unitOptions = `<option value="" disabled selected>請選擇受訪單位...</option>` + 
+                          state.data.units.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+
+      // 2. 全院待媒合清單 (顯示所有 status === 'pending' 的預約)
+      const allPending = state.data.availability.filter(a => a.status === 'pending').sort((a,b) => a.date.localeCompare(b.date));
+      const adminPendingEl = document.getElementById('admin-pending-list');
+      if (allPending.length === 0) {
+        adminPendingEl.innerHTML = `<p class="text-slate-400 text-center py-8">所有預約皆已媒合完畢</p>`;
+      } else {
+        adminPendingEl.innerHTML = allPending.map(item => `
+          <div class="bg-white border border-blue-100 p-4 rounded-xl shadow-sm">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded">${item.date}</span>
+                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded ml-1">${item.timePeriod}</span>
+                <p class="font-bold text-lg mt-2 text-slate-800">${item.userName || item.empId}</p>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+              <select id="unit-select-${item.id}" class="flex-1 text-sm border border-slate-200 rounded-lg p-2 outline-none focus:border-blue-400">
+                ${unitOptions}
+              </select>
+              <input type="text" id="time-input-${item.id}" placeholder="時間 (例: 09:30)" class="w-32 text-sm border border-slate-200 rounded-lg p-2 outline-none focus:border-blue-400">
+              <button onclick="matchVisit('${item.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors">
+                媒合
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // 3. 全院已確認清單
+      const allMatches = [...state.data.assignments].sort((a,b) => a.date.localeCompare(b.date));
+      const adminMatchedEl = document.getElementById('admin-matched-list');
+      if (allMatches.length === 0) {
+        adminMatchedEl.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400">暫無媒合紀錄</td></tr>`;
+      } else {
+        adminMatchedEl.innerHTML = allMatches.map(item => `
+          <tr class="hover:bg-slate-50 group transition-colors">
+            <td class="py-3 px-4">
+              <p class="font-bold text-slate-800">${item.date}</p>
+              <p class="text-xs text-blue-600 font-bold">${item.timePeriod} ${item.preciseTime}</p>
+            </td>
+            <td class="py-3 px-4">
+              <p class="font-bold text-slate-800">${item.userName || item.empId}</p>
+            </td>
+            <td class="py-3 px-4 font-bold text-slate-700">${item.unitName}</td>
+            <td class="py-3 px-4">
+              <p class="text-xs text-slate-500 max-w-[200px] truncate"><i class="fa-solid fa-map-pin text-red-400 mr-1"></i>${item.unitAddress}</p>
+            </td>
+            <td class="py-3 px-4">
+              <button onclick="cancelMatch('${item.id}', '${item.availabilityId}')" class="text-slate-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-all" title="取消媒合並退回預約">
+                <i class="fa-solid fa-rotate-left"></i> 撤銷
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // --- Excel 匯出/匯入邏輯 ---
+
+    function exportExcel(dataArray, filename) {
+      if (!window.XLSX) return alert('Excel 模組載入中，請稍候...');
+      if (dataArray.length === 0) return alert('目前沒有資料可以匯出');
+      
+      const ws = XLSX.utils.json_to_sheet(dataArray);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    }
+
+    // 1. 匯出單位管理清單
+    document.getElementById('btn-export-units').addEventListener('click', () => {
+      const exportData = state.data.units.map(u => ({
+        '單位名稱': u.name,
+        '詳細地址': u.address
+      }));
+      exportExcel(exportData, '受訪單位清單');
+    });
+
+    // 2. 匯入單位管理資料 (Excel)
+    document.getElementById('btn-import-units-trigger').addEventListener('click', () => {
+      document.getElementById('file-import-units').click();
+    });
+
+    document.getElementById('file-import-units').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const data = evt.target.result;
+          const wb = XLSX.read(data, { type: 'binary' });
+          const wsName = wb.SheetNames[0];
+          const json = XLSX.utils.sheet_to_json(wb.Sheets[wsName]);
+          
+          let count = 0;
+          const unitsRef = collection(db, 'artifacts', appId, 'public', 'data', 'units');
+
+          for (const row of json) {
+            const name = row['單位名稱'] || row['name'] || Object.values(row)[0]; 
+            const address = row['詳細地址'] || row['address'] || Object.values(row)[1] || '暫無地址';
+            
+            if (name) {
+              await addDoc(unitsRef, { name: String(name).trim(), address: String(address).trim() });
+              count++;
+            }
+          }
+          alert(`成功匯入 ${count} 筆單位資料至雲端！`);
+        } catch (err) {
+          console.error(err);
+          alert('匯入失敗，請確認 Excel 檔案格式。');
+        }
+        e.target.value = ''; // 清空選擇
+      };
+      reader.readAsBinaryString(file);
+    });
+
+    // 3. 匯出個人紀錄
+    document.getElementById('btn-export-personal').addEventListener('click', () => {
+      const myMatches = state.data.assignments
+        .filter(a => a.empId === state.empData.id)
+        .sort((a,b) => a.date.localeCompare(b.date));
+        
+      const exportData = myMatches.map(a => ({
+        '日期': a.date,
+        '時段': a.timePeriod,
+        '具體時間': a.preciseTime,
+        '受訪單位': a.unitName,
+        '詳細地址': a.unitAddress
+      }));
+      exportExcel(exportData, `${state.empData.id}_個人已確認行程`);
+    });
+
+    // 4. 匯出行政媒合全院總表
+    document.getElementById('btn-export-admin').addEventListener('click', () => {
+      const allMatches = [...state.data.assignments].sort((a,b) => a.date.localeCompare(b.date));
+      
+      const exportData = allMatches.map(a => ({
+        '日期': a.date,
+        '時段': a.timePeriod,
+        '具體時間': a.preciseTime,
+        '訪視人員': a.userName || a.empId,
+        '受訪單位': a.unitName,
+        '詳細地址': a.unitAddress
+      }));
+      exportExcel(exportData, `全院已確認訪視行程總表`);
+    });
+
+    // 啟動應用程式
+    window.onload = initFirebase;
+
+  </script>
+</body>
+</html>
