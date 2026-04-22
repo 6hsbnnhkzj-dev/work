@@ -190,7 +190,7 @@
           <div class="lg:col-span-1 space-y-6">
             <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
               <div class="flex justify-between items-center mb-6">
-                <h2 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-building text-blue-600"></i> 單位管理 (公共)</h2>
+                <h2 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-building text-blue-600"></i> 單位管理 (個人)</h2>
                 <div class="flex gap-1">
                   <button id="btn-export-units" class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100"><i class="fa-solid fa-download"></i></button>
                   <button id="btn-trigger-import" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100"><i class="fa-solid fa-upload"></i></button>
@@ -322,10 +322,11 @@
 
       const userId = empName.toLowerCase();
 
-      // 1. 個人資料路徑 (資料隔離)
+      // 1. 個人資料路徑 (資料隔離) - 包含預約、媒合、以及個人專屬單位
       const personalPaths = [
         { key: 'availability', coll: `artifacts/${appId}/users/${userId}/availability` },
-        { key: 'assignments', coll: `artifacts/${appId}/users/${userId}/assignments` }
+        { key: 'assignments', coll: `artifacts/${appId}/users/${userId}/assignments` },
+        { key: 'units', coll: `artifacts/${appId}/users/${userId}/units` }
       ];
 
       personalPaths.forEach(p => {
@@ -342,13 +343,6 @@
         renderUI();
       });
       state.unsubscribers.push(unsubGoal);
-
-      // 3. 公共資料路徑 (共享單位清單)
-      const unsubUnits = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'units'), (snap) => {
-        state.data.units = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-        renderUI();
-      });
-      state.unsubscribers.push(unsubUnits);
     }
 
     function renderUI() {
@@ -493,7 +487,12 @@
     }
 
     window.removeTemp = (d) => { state.tempSelections = state.tempSelections.filter(x => x !== d); renderUI(); };
-    window.deleteUnit = (id) => { if(confirm('確定刪除公共單位？')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'units', id)); };
+    
+    // 核心修改：單位刪除改為個人路徑
+    window.deleteUnit = (id) => { 
+      const userId = localStorage.getItem('empName').toLowerCase();
+      if(confirm('確定刪除您的個人單位？')) deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/units`, id)); 
+    };
     
     window.deleteAvail = (id) => { 
       const userId = localStorage.getItem('empName').toLowerCase();
@@ -556,12 +555,14 @@
       state.tempSelections = []; alert('預約成功！'); renderUI();
     };
 
+    // 核心修改：單位新增改為個人路徑
     document.getElementById('btn-add-unit').onclick = async () => {
+      const userId = localStorage.getItem('empName').toLowerCase();
       const n = document.getElementById('new-unit-name').value;
       const a = document.getElementById('new-unit-addr').value;
       const t = document.getElementById('new-unit-target').value;
       if(!n) return;
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'units'), { name: n, address: a || '暫無', target: t ? parseInt(t) : 0 });
+      await addDoc(collection(db, `artifacts/${appId}/users/${userId}/units`), { name: n, address: a || '暫無', target: t ? parseInt(t) : 0 });
       ['new-unit-name', 'new-unit-addr', 'new-unit-target'].forEach(id => document.getElementById(id).value = '');
     };
 
@@ -572,19 +573,22 @@
     };
 
     document.getElementById('btn-trigger-import').onclick = () => document.getElementById('input-excel-file').click();
+    
+    // 核心修改：單位 Excel 匯入改為個人路徑
     document.getElementById('input-excel-file').onchange = (e) => {
       const file = e.target.files[0]; if(!file) return;
+      const userId = localStorage.getItem('empName').toLowerCase();
       const reader = new FileReader();
       reader.onload = async (evt) => {
         const wb = XLSX.read(evt.target.result, { type: 'binary' });
         const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
-          if (row[0]) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'units'), { 
+          if (row[0]) await addDoc(collection(db, `artifacts/${appId}/users/${userId}/units`), { 
             name: String(row[0]), address: String(row[1] || '暫無'), target: parseInt(row[2]) || 0 
           });
         }
-        alert('單位清單匯入成功');
+        alert('個人單位清單匯入成功');
       };
       reader.readAsBinaryString(file);
     };
@@ -610,7 +614,7 @@
     };
 
     document.getElementById('btn-export-units').onclick = () => {
-      xport(state.data.units.map(u => ({ '單位': u.name, '地址': u.address, '目標': u.target })), `單位清單`);
+      xport(state.data.units.map(u => ({ '單位': u.name, '地址': u.address, '目標': u.target })), `個人單位清單`);
     };
 
     document.getElementById('filter-month').onchange = () => renderUI();
