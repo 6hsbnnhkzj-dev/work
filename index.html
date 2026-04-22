@@ -3,13 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>訪視預約媒合系統 - 雲端版</title>
-  
-  <!-- 引入 Tailwind CSS -->
+  <title>訪視預約媒合系統 - 個人獨立版</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 引入 FontAwesome 圖示 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- 引入 SheetJS 用於 Excel 匯出與匯入 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
@@ -19,13 +15,10 @@
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .hidden-state { display: none !important; }
-    .animate-pulse-subtle { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- 載入中遮罩 -->
   <div id="loading-screen" class="fixed inset-0 bg-slate-50 z-50 flex flex-col items-center justify-center">
     <div class="relative w-20 h-20">
       <div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
@@ -34,208 +27,106 @@
     <p class="text-slate-500 font-bold mt-6 tracking-widest">系統連線中...</p>
   </div>
 
-  <!-- 登入畫面 -->
   <div id="login-screen" class="fixed inset-0 bg-slate-900/10 z-40 flex items-center justify-center backdrop-blur-md hidden-state">
-    <div class="bg-white p-10 rounded-3xl shadow-2xl w-[90%] max-w-md border border-white transform transition-all scale-100">
+    <div class="bg-white p-10 rounded-3xl shadow-2xl w-[90%] max-w-md border border-white">
       <div class="text-center mb-10">
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200 mb-6">
-          <i class="fa-solid fa-user-check text-3xl text-white"></i>
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-2xl shadow-lg mb-6">
+          <i class="fa-solid fa-user-lock text-3xl text-white"></i>
         </div>
-        <h2 class="text-3xl font-black text-slate-900">訪視系統登入</h2>
-        <p class="text-slate-400 font-medium mt-2">請輸入您的使用者名稱 (Karen / Shirley)</p>
+        <h2 class="text-3xl font-black text-slate-900">個人化系統登入</h2>
+        <p class="text-slate-400 font-medium mt-2">請輸入您的名稱進行資料隔離</p>
       </div>
       <div class="space-y-6">
-        <div class="relative">
-          <i class="fa-solid fa-user absolute left-4 top-4 text-slate-300"></i>
-          <input type="text" id="login-id" placeholder="使用者名稱" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold">
-        </div>
-        <button id="btn-login" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex justify-center items-center gap-3">
-          進入系統 <i class="fa-solid fa-chevron-right text-sm"></i>
+        <input type="text" id="login-id" placeholder="例如: Karen" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold">
+        <button id="btn-login" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all flex justify-center items-center gap-3">
+          啟動個人系統 <i class="fa-solid fa-chevron-right text-sm"></i>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- 主程式介面 -->
   <div id="main-app" class="hidden-state">
     <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-30">
       <div class="flex items-center gap-4">
-        <div class="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
+        <div class="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
           <i class="fa-solid fa-calendar-check text-white"></i>
         </div>
         <div>
-          <h1 class="text-xl font-black text-slate-900 tracking-tight">訪視預約媒合系統</h1>
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="nav-user-display">USER: LOADING</p>
+          <h1 class="text-xl font-black text-slate-900 tracking-tight">訪視預約系統</h1>
+          <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest" id="nav-user-display">USER: LOADING</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl shadow-inner">
-        <button id="tab-doctor" class="px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-white shadow-sm text-blue-600">人員預約</button>
-        <button id="tab-admin" class="px-6 py-2.5 rounded-xl text-sm font-black transition-all text-slate-500 hover:text-slate-900">訪視媒合</button>
-        <div class="w-px h-6 bg-slate-200 mx-1"></div>
-        <button id="btn-logout" class="p-2.5 text-red-400 hover:text-red-600 transition-colors" title="登出"><i class="fa-solid fa-right-from-bracket"></i></button>
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
+        <button id="tab-doctor" class="px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-white shadow-sm text-blue-600">我的預約</button>
+        <button id="tab-admin" class="px-6 py-2.5 rounded-xl text-sm font-black transition-all text-slate-500">我的媒合後端</button>
+        <button id="btn-logout" class="p-2.5 text-red-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-right-from-bracket"></i></button>
       </div>
     </nav>
 
     <main class="max-w-[1400px] mx-auto p-6 md:p-10">
-      <div id="view-doctor" class="space-y-10 animate-in fade-in duration-700">
+      <div id="view-doctor" class="space-y-10">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div class="space-y-6">
             <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
               <h2 class="text-lg font-black mb-6 flex items-center gap-3"><i class="fa-solid fa-sliders text-blue-600"></i> 預約設定</h2>
               <div class="space-y-5">
-                <div>
-                  <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">選擇時段</label>
-                  <div class="grid grid-cols-2 gap-3" id="period-selector">
-                    <button data-val="早上" class="period-btn py-3 rounded-2xl border-2 border-blue-600 bg-blue-50 text-blue-600 font-black text-sm transition-all">早上</button>
-                    <button data-val="下午" class="period-btn py-3 rounded-2xl border-2 border-transparent bg-slate-50 text-slate-400 font-black text-sm transition-all">下午</button>
-                  </div>
-                </div>
-                <div class="pt-4 border-t border-slate-50">
-                  <p class="text-[10px] font-bold text-slate-400 leading-relaxed"><i class="fa-solid fa-circle-info mr-1 text-blue-400"></i> 請在右方日曆點擊日期進行勾選。</p>
+                <div class="grid grid-cols-2 gap-3" id="period-selector">
+                  <button data-val="早上" class="period-btn py-3 rounded-2xl border-2 border-blue-600 bg-blue-50 text-blue-600 font-black text-sm">早上</button>
+                  <button data-val="下午" class="period-btn py-3 rounded-2xl border-2 border-transparent bg-slate-50 text-slate-400 font-black text-sm">下午</button>
                 </div>
               </div>
             </div>
             <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
               <h2 class="text-lg font-black mb-6 flex items-center gap-3"><i class="fa-solid fa-list-check text-blue-600"></i> 待送出清單</h2>
-              <div id="temp-list" class="space-y-3 min-h-[100px] max-h-[300px] overflow-y-auto pr-2"></div>
-              <button id="btn-submit-registrations" class="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-black transition-all shadow-xl hidden-state">
+              <div id="temp-list" class="space-y-3 max-h-[300px] overflow-y-auto pr-2"></div>
+              <button id="btn-submit-registrations" class="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-black transition-all hidden-state">
                 確認送出預約 (<span id="temp-count">0</span>)
               </button>
             </div>
           </div>
           <div class="lg:col-span-2 bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
             <div class="flex justify-between items-center mb-10">
-              <h2 class="text-2xl font-black text-slate-900" id="calendar-title">載入中...</h2>
+              <h2 class="text-2xl font-black text-slate-900" id="calendar-title">2026 年 ... 月</h2>
               <div class="flex gap-3">
                 <button id="cal-prev" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-chevron-left"></i></button>
                 <button id="cal-next" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-chevron-right"></i></button>
               </div>
             </div>
-            <div class="grid grid-cols-7 gap-4 text-center mb-6">
-              <div class="text-[10px] font-black text-red-400 uppercase">SUN</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase">MON</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase">TUE</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase">WED</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase">THU</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase">FRI</div>
-              <div class="text-[10px] font-black text-slate-400 uppercase text-blue-400">SAT</div>
-            </div>
             <div id="calendar-grid" class="grid grid-cols-7 gap-3 md:gap-4"></div>
           </div>
         </div>
+        
         <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
           <div class="flex justify-between items-center mb-8">
             <h2 class="text-2xl font-black text-green-600 flex items-center gap-3"><i class="fa-solid fa-map-location-dot"></i> 我的已確認行程</h2>
-            <button id="btn-export-personal" class="bg-green-50 text-green-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-100 transition-all flex items-center gap-2">
-              <i class="fa-solid fa-file-excel"></i> 匯出
+            <button id="btn-export-personal" class="bg-green-50 text-green-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-100">
+              <i class="fa-solid fa-file-excel mr-2"></i>匯出
             </button>
           </div>
           <div id="personal-schedule" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
       </div>
 
-      <div id="view-admin" class="hidden-state space-y-10 animate-in fade-in duration-700">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div class="lg:col-span-2 bg-white p-10 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col md:flex-row items-center gap-12">
-            <div class="relative w-44 h-44 flex-shrink-0">
-              <svg class="w-full h-full -rotate-90">
-                <circle cx="88" cy="88" r="80" stroke="#f1f5f9" stroke-width="12" fill="transparent" />
-                <circle id="goal-circle" cx="88" cy="88" r="80" stroke="#2563eb" stroke-width="12" fill="transparent" stroke-dasharray="502.6" stroke-dashoffset="502.6" stroke-linecap="round" class="transition-all duration-1000" />
-              </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span id="goal-percent" class="text-3xl font-black text-slate-900">0%</span>
-              </div>
-            </div>
-            <div class="flex-1 text-center md:text-left space-y-2">
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center md:justify-start gap-2"><i class="fa-solid fa-trophy text-amber-400"></i> 年度總體訪視進度</p>
-              <div class="flex items-baseline gap-3 justify-center md:justify-start">
-                <span id="stat-total-count" class="text-6xl font-black text-slate-900">0</span>
-                <span class="text-slate-400 font-bold">/ 目標 <span id="stat-goal-val">200</span> 次</span>
-              </div>
-              <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-4">
-                <div id="goal-bar" class="bg-blue-600 h-full w-0 transition-all duration-1000"></div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-            <h3 class="font-black text-slate-700 mb-6 flex items-center gap-3"><i class="fa-solid fa-gear"></i> 年度目標設定</h3>
-            <div class="space-y-6">
-              <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">年度總目標</label>
-                <div class="flex gap-3">
-                  <input type="number" id="input-annual-goal" class="flex-1 px-5 py-3 bg-slate-50 rounded-2xl font-black outline-none focus:ring-2 focus:ring-blue-500" value="200">
-                  <button id="btn-save-goal" class="bg-slate-900 text-white px-6 rounded-2xl font-black hover:bg-black transition-all">儲存</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div id="view-admin" class="hidden-state space-y-10">
         <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
-          <h2 class="text-2xl font-black mb-8 flex items-center gap-3"><i class="fa-solid fa-chart-line text-blue-600"></i> 各單位訪視統計明細</h2>
-          <div class="overflow-x-auto rounded-2xl border border-slate-50">
-            <table class="w-full text-center text-sm border-collapse min-w-[1200px]">
-              <thead>
-                <tr id="stats-header-row" class="bg-slate-50 text-slate-400 font-black border-b border-slate-100">
-                  <th class="py-5 px-4 text-left sticky left-0 bg-slate-50 z-10 w-56 border-r border-slate-100">單位名稱</th>
-                  <th class="py-5 px-4 bg-blue-50 text-blue-700 border-l border-slate-100">累計</th>
-                  <th class="py-5 px-4 bg-amber-50 text-amber-700 border-l border-slate-100">目標</th>
-                  <th class="py-5 px-4 border-l border-slate-100">達成狀況</th>
-                </tr>
-              </thead>
-              <tbody id="stats-table-body" class="divide-y divide-slate-50 font-medium"></tbody>
-            </table>
-          </div>
+          <h2 class="text-2xl font-black mb-8 flex items-center gap-3"><i class="fa-solid fa-hourglass-half text-amber-500"></i> 我的待媒合訪視</h2>
+          <div id="admin-pending-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
-          <div class="lg:col-span-1 space-y-6">
-            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-              <div class="flex justify-between items-center mb-6">
-                <h2 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-building text-blue-600"></i> 單位管理</h2>
-                <div class="flex gap-1">
-                  <button id="btn-export-units" class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100"><i class="fa-solid fa-download"></i></button>
-                  <button id="btn-trigger-import" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100"><i class="fa-solid fa-upload"></i></button>
-                </div>
-                <input type="file" id="input-excel-file" class="hidden" accept=".xlsx, .xls">
-              </div>
-              <div class="space-y-4 mb-8 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                <input type="text" id="new-unit-name" placeholder="單位名稱" class="w-full px-4 py-2.5 bg-white rounded-xl text-sm outline-none font-bold">
-                <input type="text" id="new-unit-addr" placeholder="地址" class="w-full px-4 py-2.5 bg-white rounded-xl text-sm outline-none font-bold">
-                <input type="number" id="new-unit-target" placeholder="目標次數" class="w-full px-4 py-2.5 bg-white rounded-xl text-sm outline-none font-bold">
-                <button id="btn-add-unit" class="w-full bg-blue-600 text-white py-3 rounded-xl text-sm font-black hover:bg-blue-700">新增單位</button>
-              </div>
-              <div id="unit-list" class="space-y-2 max-h-72 overflow-y-auto pr-2 font-bold"></div>
+
+        <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h2 class="text-2xl font-black text-slate-900 flex items-center gap-3"><i class="fa-solid fa-clipboard-check text-green-600"></i> 我的行程總表</h2>
+            <div class="flex gap-3">
+              <button id="btn-export-admin" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs">匯出總表</button>
             </div>
           </div>
-          <div class="lg:col-span-3 space-y-10">
-            <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
-              <h2 class="font-black text-xl mb-8 flex items-center gap-3"><i class="fa-solid fa-hourglass-half text-amber-500"></i> 待媒合訪視清單</h2>
-              <div id="admin-pending-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-            </div>
-            <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100">
-              <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <h2 class="text-2xl font-black text-slate-900 flex items-center gap-3"><i class="fa-solid fa-clipboard-check text-green-600"></i> 已媒合行程總表</h2>
-                <div class="flex gap-3">
-                  <select id="filter-month" class="bg-slate-50 border-none rounded-xl text-xs font-black px-4 py-2 outline-none"></select>
-                  <button id="btn-export-admin" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-black transition-all">
-                    <i class="fa-solid fa-file-excel mr-1"></i> 匯出總表
-                  </button>
-                </div>
-              </div>
-              <div class="overflow-x-auto rounded-2xl border border-slate-50">
-                <table class="w-full text-left min-w-[1000px]">
-                  <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <tr>
-                      <th class="py-4 px-6">日期時段</th>
-                      <th class="py-4 px-6">訪視人員</th>
-                      <th class="py-4 px-6">受訪單位</th>
-                      <th class="py-4 px-6">地址</th>
-                      <th class="py-4 px-6"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-history-body" class="divide-y divide-slate-50 font-bold"></tbody>
-                </table>
-              </div>
-            </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left min-w-[1000px]">
+              <thead class="bg-slate-50 text-[10px] font-black text-slate-400">
+                <tr><th class="py-4 px-6">日期時段</th><th class="py-4 px-6">人員</th><th class="py-4 px-6">受訪單位</th><th class="py-4 px-6">地址</th><th class="py-4 px-6"></th></tr>
+              </thead>
+              <tbody id="admin-history-body" class="divide-y divide-slate-50 font-bold"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -245,7 +136,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyA9KdHt1Aywhz8FsCjEzogwnWJjGA5ZM98",
@@ -265,7 +156,8 @@
       user: null, view: 'doctor', 
       currentMonth: new Date().getMonth(), displayYear: 2026,
       selectedTimePeriod: '早上', tempSelections: [],
-      data: { availability: [], assignments: [], units: [], annualGoal: 200 }
+      data: { availability: [], assignments: [], units: [] },
+      listeners: [] // 用於清理舊的監聽器
     };
 
     async function init() {
@@ -273,8 +165,6 @@
         state.user = user;
         if (user) {
           checkLoginStatus();
-          setupListeners();
-          initializeStaticUI();
         } else {
           signInAnonymously(auth).catch(console.error);
         }
@@ -288,43 +178,41 @@
         document.getElementById('login-screen').classList.add('hidden-state');
         document.getElementById('main-app').classList.remove('hidden-state');
         document.getElementById('nav-user-display').innerText = `USER: ${storedUser}`;
-        renderUI();
+        setupUserListeners(storedUser);
       } else {
         document.getElementById('login-screen').classList.remove('hidden-state');
+        document.getElementById('main-app').classList.add('hidden-state');
       }
     }
 
-    function initializeStaticUI() {
-      const headerRow = document.getElementById('stats-header-row');
-      const cumHeader = headerRow.querySelector('.bg-blue-50');
-      headerRow.querySelectorAll('th.month-header').forEach(el => el.remove());
-      for (let i = 1; i <= 12; i++) {
-        const th = document.createElement('th');
-        th.className = "py-5 px-2 month-header";
-        th.innerText = `${i}月`;
-        headerRow.insertBefore(th, cumHeader);
-      }
-      const filterMonth = document.getElementById('filter-month');
-      filterMonth.innerHTML = '<option value="all">所有月份</option>';
-      for (let i = 1; i <= 12; i++) {
-        const opt = document.createElement('option');
-        opt.value = i.toString().padStart(2, '0');
-        opt.innerText = `${i}月`;
-        filterMonth.appendChild(opt);
-      }
-    }
+    // 核心修改：根據使用者名稱設定獨立的監聽路徑
+    function setupUserListeners(userName) {
+      // 1. 清理舊監聽（避免重複渲染）
+      state.listeners.forEach(unsubscribe => unsubscribe());
+      state.listeners = [];
 
-    function setupListeners() {
-      ['availability', 'assignments', 'units'].forEach(p => {
-        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', p), (snap) => {
-          state.data[p] = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      const safeName = userName.toLowerCase();
+
+      // 獨立的路徑：只聽取屬於該使用者的資料
+      const paths = [
+        { key: 'availability', path: `artifacts/${appId}/users/${safeName}/availability` },
+        { key: 'assignments', path: `artifacts/${appId}/users/${safeName}/assignments` }
+      ];
+
+      paths.forEach(p => {
+        const unsub = onSnapshot(collection(db, p.path), (snap) => {
+          state.data[p.key] = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
           renderUI();
         });
+        state.listeners.push(unsub);
       });
-      onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'annualGoal'), (snap) => {
-        if(snap.exists()) state.data.annualGoal = snap.data().value;
+
+      // 共享的路徑：單位清單
+      const unsubUnits = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'units'), (snap) => {
+        state.data.units = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
         renderUI();
       });
+      state.listeners.push(unsubUnits);
     }
 
     function renderUI() {
@@ -337,109 +225,79 @@
     function renderDoctorView() {
       const grid = document.getElementById('calendar-grid');
       const tempList = document.getElementById('temp-list');
-      const schedList = document.getElementById('personal-schedule');
       const currentUser = localStorage.getItem('empName');
       document.getElementById('calendar-title').innerText = `${state.displayYear} 年 ${state.currentMonth + 1} 月`;
       grid.innerHTML = '';
+
       const days = new Date(state.displayYear, state.currentMonth + 1, 0).getDate();
       const first = new Date(state.displayYear, state.currentMonth, 1).getDay();
+
       for(let i=0; i<first; i++) grid.innerHTML += '<div></div>';
+      
       for(let d=1; d<=days; d++) {
         const dateStr = `${state.displayYear}-${(state.currentMonth+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
         const isTemp = state.tempSelections.indexOf(dateStr) > -1;
-        const myAvail = state.data.availability.find(a => a.date === dateStr && a.timePeriod === state.selectedTimePeriod && a.doctorName === currentUser);
+        const myAvail = state.data.availability.find(a => a.date === dateStr && a.timePeriod === state.selectedTimePeriod);
+        
         let cls = "bg-white border-slate-100 text-slate-800 hover:border-blue-400";
         if (isTemp) cls = "bg-amber-100 border-amber-400 text-amber-800";
         else if (myAvail) {
           cls = myAvail.status === 'matched' ? "bg-green-100 border-green-200 text-green-700" : "bg-blue-100 border-blue-200 text-blue-700";
         }
+
         const cell = document.createElement('button');
         cell.className = `aspect-square rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${cls}`;
         cell.innerHTML = `<span class="text-sm font-black">${d}</span>${(isTemp || myAvail) ? `<span class="text-[8px] font-bold mt-1">${state.selectedTimePeriod}</span>` : ''}`;
         cell.onclick = () => toggleDate(dateStr);
         grid.appendChild(cell);
       }
-      if (state.tempSelections.length === 0) {
-        tempList.innerHTML = `<p class="text-slate-300 text-sm italic text-center py-10">尚未選取</p>`;
-        document.getElementById('btn-submit-registrations').classList.add('hidden-state');
-      } else {
-        document.getElementById('btn-submit-registrations').classList.remove('hidden-state');
-        document.getElementById('temp-count').innerText = state.tempSelections.length;
-        tempList.innerHTML = state.tempSelections.sort().map(d => `
-          <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center">
-            <div><p class="text-xs font-black">${d}</p></div>
-            <button onclick="window.removeTemp('${d}')" class="text-amber-300"><i class="fa-solid fa-circle-xmark"></i></button>
-          </div>
-        `).join('');
-      }
-      const myMatches = state.data.assignments.filter(a => a.doctorName === currentUser).sort((a,b)=>a.date.localeCompare(b.date));
-      schedList.innerHTML = myMatches.length ? myMatches.map(m => `
+
+      tempList.innerHTML = state.tempSelections.length ? state.tempSelections.map(d => `
+        <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center">
+          <p class="text-xs font-black">${d} ${state.selectedTimePeriod}</p>
+          <button onclick="window.removeTemp('${d}')" class="text-amber-300"><i class="fa-solid fa-circle-xmark"></i></button>
+        </div>
+      `).join('') : `<p class="text-slate-300 text-sm italic text-center py-10">尚無選擇</p>`;
+      
+      document.getElementById('btn-submit-registrations').classList.toggle('hidden-state', state.tempSelections.length === 0);
+      document.getElementById('temp-count').innerText = state.tempSelections.length;
+
+      const myMatches = state.data.assignments.sort((a,b)=>a.date.localeCompare(b.date));
+      document.getElementById('personal-schedule').innerHTML = myMatches.length ? myMatches.map(m => `
         <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100 relative overflow-hidden">
           <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-green-500"></div>
           <span class="bg-white text-green-700 px-3 py-1 rounded-xl text-[10px] font-black border border-green-100">${m.date} ${m.preciseTime}</span>
           <h4 class="font-black mt-4">${m.unitName}</h4><p class="text-[10px] text-slate-400 font-bold">${m.unitAddress}</p>
         </div>
-      `).join('') : `<div class="col-span-full py-10 text-center text-slate-300 italic">尚無媒合</div>`;
+      `).join('') : `<div class="col-span-full py-10 text-center text-slate-300 italic">尚無媒合行程</div>`;
     }
 
     function renderAdminView() {
-      const totalMatched = state.data.assignments.length;
-      const goal = state.data.annualGoal || 1;
-      const pct = Math.min(100, Math.round((totalMatched / goal) * 100));
-      document.getElementById('stat-total-count').innerText = totalMatched;
-      document.getElementById('stat-goal-val').innerText = goal;
-      document.getElementById('goal-percent').innerText = `${pct}%`;
-      document.getElementById('goal-bar').style.width = `${pct}%`;
-      document.getElementById('goal-circle').style.strokeDashoffset = 502.6 - (502.6 * pct / 100);
-      const statsMap = {};
-      state.data.units.forEach(u => statsMap[u.name] = { id: u.id, months: Array(12).fill(0), total: 0, target: u.target || 0 });
-      state.data.assignments.forEach(a => {
-        if(statsMap[a.unitName]) {
-          const m = parseInt(a.date.split('-')[1]) - 1;
-          statsMap[a.unitName].months[m]++; statsMap[a.unitName].total++;
-        }
-      });
-      document.getElementById('stats-table-body').innerHTML = Object.keys(statsMap).sort().map(name => {
-        const s = statsMap[name];
-        return `<tr class="hover:bg-slate-50">
-          <td class="py-4 px-4 text-left font-black text-slate-700 sticky left-0 bg-white border-r">${name}</td>
-          ${s.months.map(m => `<td class="py-4 px-2 ${m > 0 ? 'text-blue-600 font-black' : 'text-slate-200'}">${m || 0}</td>`).join('')}
-          <td class="py-4 px-4 bg-blue-50/50 text-blue-700 font-black">${s.total}</td>
-          <td class="py-4 px-4 bg-amber-50/50 text-amber-700 font-black">${s.target || '-'}</td>
-          <td class="py-4 px-4">${s.target > 0 ? (s.total >= s.target ? '<i class="fa-solid fa-check-circle text-green-600"></i>' : `<span class="text-red-400">差 ${s.target - s.total}</span>`) : '-'}</td>
-        </tr>`;
-      }).join('');
-      document.getElementById('unit-list').innerHTML = state.data.units.sort((a,b)=>a.name.localeCompare(b.name)).map(u => `
-        <div class="flex justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-          <div class="truncate w-32"><p class="text-xs">${u.name}</p></div>
-          <button onclick="window.deleteUnit('${u.id}')" class="text-slate-200 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-      `).join('');
-      const pends = state.data.availability.filter(a => a.status === 'pending').sort((a,b)=>a.date.localeCompare(b.date));
+      const pends = state.data.availability.filter(a => a.status === 'pending');
       const opts = state.data.units.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+      
       document.getElementById('admin-pending-list').innerHTML = pends.length ? pends.map(p => `
-        <div class="p-6 bg-white border-2 border-slate-50 rounded-[2rem] shadow-sm flex flex-col gap-5">
+        <div class="p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm space-y-4">
           <div class="flex justify-between">
-            <div><span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-xl text-[10px] font-black">${p.date} ${p.timePeriod}</span><h4 class="text-lg font-black mt-2">${p.doctorName}</h4></div>
-            <button onclick="window.deleteAvail('${p.id}')" class="text-slate-200 hover:text-red-400"><i class="fa-solid fa-trash-can"></i></button>
+            <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-xl text-[10px] font-black">${p.date} ${p.timePeriod}</span>
+            <button onclick="window.deleteAvail('${p.id}')" class="text-slate-300 hover:text-red-400"><i class="fa-solid fa-trash-can"></i></button>
           </div>
-          <div class="space-y-3">
-            <select id="unit-sel-${p.id}" class="w-full bg-slate-50 rounded-xl text-xs font-bold p-3 outline-none"><option value="" disabled selected>指派單位...</option>${opts}</select>
-            <div class="flex gap-2">
-              <input type="text" id="time-in-${p.id}" placeholder="時間" class="flex-1 bg-slate-50 rounded-xl text-xs font-bold p-3 outline-none">
-              <button onclick="window.submitMatch('${p.id}')" class="bg-blue-600 text-white px-5 rounded-xl text-xs font-black">媒合</button>
-            </div>
+          <select id="unit-sel-${p.id}" class="w-full bg-slate-50 rounded-xl text-xs font-bold p-3 outline-none"><option value="">指派單位...</option>${opts}</select>
+          <div class="flex gap-2">
+            <input type="text" id="time-in-${p.id}" placeholder="時間" class="flex-1 bg-slate-50 rounded-xl text-xs font-bold p-3 outline-none">
+            <button onclick="window.submitMatch('${p.id}')" class="bg-blue-600 text-white px-5 rounded-xl text-xs font-black">媒合</button>
           </div>
         </div>
-      `).join('') : `<p class="col-span-full py-10 text-center text-slate-300 italic">無待媒合</p>`;
-      const mFilter = document.getElementById('filter-month').value;
-      const hist = state.data.assignments.filter(a => mFilter === 'all' || a.date.split('-')[1] === mFilter).sort((a,b)=>a.date.localeCompare(b.date));
+      `).join('') : `<p class="col-span-full py-10 text-center text-slate-300 italic">目前無待媒合時段</p>`;
+
+      const hist = state.data.assignments.sort((a,b)=>a.date.localeCompare(b.date));
       document.getElementById('admin-history-body').innerHTML = hist.map(m => `
-        <tr class="hover:bg-slate-50 group">
+        <tr class="hover:bg-slate-50">
           <td class="py-4 px-6"><p class="text-sm font-black">${m.date}</p><p class="text-[10px] text-blue-600 font-bold">${m.timePeriod} ${m.preciseTime}</p></td>
-          <td class="py-4 px-6 text-sm font-black">${m.doctorName}</td><td class="py-4 px-6 text-sm font-black">${m.unitName}</td>
+          <td class="py-4 px-6 text-sm font-black">${localStorage.getItem('empName')}</td>
+          <td class="py-4 px-6 text-sm font-black">${m.unitName}</td>
           <td class="py-4 px-6 text-[10px] text-slate-400 truncate max-w-[200px]">${m.unitAddress}</td>
-          <td class="py-4 px-6 text-right"><button onclick="window.deleteMatch('${m.id}', '${m.availabilityId}')" class="text-slate-200 hover:text-red-500 transition-all"><i class="fa-solid fa-rotate-left"></i></button></td>
+          <td class="py-4 px-6 text-right"><button onclick="window.deleteMatch('${m.id}', '${m.availabilityId}')" class="text-slate-200 hover:text-red-500"><i class="fa-solid fa-rotate-left"></i></button></td>
         </tr>
       `).join('');
     }
@@ -448,47 +306,71 @@
       const idx = state.tempSelections.indexOf(dateStr);
       if (idx > -1) state.tempSelections.splice(idx, 1);
       else {
-        const my = state.data.availability.find(a => a.date === dateStr && a.timePeriod === state.selectedTimePeriod && a.doctorName === localStorage.getItem('empName'));
-        if(!my) state.tempSelections.push(dateStr);
+        if (!state.data.availability.find(a => a.date === dateStr && a.timePeriod === state.selectedTimePeriod)) {
+          state.tempSelections.push(dateStr);
+        }
       }
       renderUI();
     }
 
     window.removeTemp = (d) => { state.tempSelections = state.tempSelections.filter(x => x !== d); renderUI(); };
-    window.deleteUnit = (id) => { if(confirm('確定刪除？')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'units', id)); };
-    window.deleteAvail = (id) => { if(confirm('確定刪除？')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', id)); };
-    window.deleteMatch = (mid, aid) => { 
-      if(confirm('撤銷？')) {
-        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assignments', mid));
-        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', aid), { status: 'pending' });
-      }
+    
+    // 核心修改：寫入資料時使用使用者專屬路徑
+    window.deleteAvail = (id) => {
+      const safeName = localStorage.getItem('empName').toLowerCase();
+      if(confirm('確定刪除？')) deleteDoc(doc(db, `artifacts/${appId}/users/${safeName}/availability`, id));
     };
+
     window.submitMatch = async (aid) => {
+      const safeName = localStorage.getItem('empName').toLowerCase();
       const uId = document.getElementById(`unit-sel-${aid}`).value;
       const tVal = document.getElementById(`time-in-${aid}`).value;
       if(!uId || !tVal) return alert('請填寫完整');
+      
       const unit = state.data.units.find(u => u.id === uId);
       const avail = state.data.availability.find(a => a.id === aid);
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'assignments'), {
-        availabilityId: aid, doctorName: avail.doctorName, institutionName: '醫院',
+
+      await addDoc(collection(db, `artifacts/${appId}/users/${safeName}/assignments`), {
+        availabilityId: aid, 
         date: avail.date, timePeriod: avail.timePeriod, preciseTime: tVal,
         unitName: unit.name, unitAddress: unit.address, matchedAt: new Date().toISOString()
       });
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'availability', aid), { status: 'matched' });
+      await updateDoc(doc(db, `artifacts/${appId}/users/${safeName}/availability`, aid), { status: 'matched' });
+      alert('媒合成功！');
+    };
+
+    window.deleteMatch = (mid, aid) => {
+      const safeName = localStorage.getItem('empName').toLowerCase();
+      if(confirm('撤銷媒合？')) {
+        deleteDoc(doc(db, `artifacts/${appId}/users/${safeName}/assignments`, mid));
+        updateDoc(doc(db, `artifacts/${appId}/users/${safeName}/availability`, aid), { status: 'pending' });
+      }
     };
 
     document.getElementById('btn-login').onclick = () => {
-      const val = document.getElementById('login-id').value.trim().toLowerCase();
-      if (['karen', 'shirley'].indexOf(val) > -1) {
-        localStorage.setItem('empName', val.charAt(0).toUpperCase() + val.slice(1));
+      const val = document.getElementById('login-id').value.trim();
+      if (val) {
+        localStorage.setItem('empName', val);
         checkLoginStatus();
-      } else alert('無效使用者');
+      } else alert('請輸入名稱');
     };
-    document.getElementById('btn-logout').onclick = () => { localStorage.removeItem('empName'); location.reload(); };
-    document.getElementById('tab-doctor').onclick = () => { state.view = 'doctor'; renderUI(); };
-    document.getElementById('tab-admin').onclick = () => { state.view = 'admin'; renderUI(); };
-    document.getElementById('cal-prev').onclick = () => { state.currentMonth--; if(state.currentMonth < 0){state.currentMonth=11; state.displayYear--;} renderUI(); };
-    document.getElementById('cal-next').onclick = () => { state.currentMonth++; if(state.currentMonth > 11){state.currentMonth=0; state.displayYear++;} renderUI(); };
+
+    document.getElementById('btn-logout').onclick = () => {
+      localStorage.removeItem('empName');
+      location.reload();
+    };
+
+    document.getElementById('btn-submit-registrations').onclick = async () => {
+      const safeName = localStorage.getItem('empName').toLowerCase();
+      for (const d of state.tempSelections) {
+        await addDoc(collection(db, `artifacts/${appId}/users/${safeName}/availability`), {
+          date: d, timePeriod: state.selectedTimePeriod,
+          createdAt: new Date().toISOString(), status: 'pending'
+        });
+      }
+      state.tempSelections = []; alert('預約已送出！'); renderUI();
+    };
+
     document.querySelectorAll('.period-btn').forEach(b => {
       b.onclick = () => {
         state.selectedTimePeriod = b.dataset.val;
@@ -496,65 +378,11 @@
         renderUI();
       };
     });
-    document.getElementById('btn-submit-registrations').onclick = async () => {
-      const name = localStorage.getItem('empName');
-      for (const d of state.tempSelections) {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'availability'), {
-          doctorName: name, institutionName: '醫院', date: d, timePeriod: state.selectedTimePeriod,
-          createdAt: new Date().toISOString(), status: 'pending'
-        });
-      }
-      state.tempSelections = []; alert('成功！'); renderUI();
-    };
-    document.getElementById('btn-add-unit').onclick = async () => {
-      const n = document.getElementById('new-unit-name').value;
-      const a = document.getElementById('new-unit-addr').value;
-      const t = document.getElementById('new-unit-target').value;
-      if(!n) return;
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'units'), { name: n, address: a || '暫無', target: t ? parseInt(t) : 0 });
-      ['new-unit-name', 'new-unit-addr', 'new-unit-target'].forEach(id => document.getElementById(id).value = '');
-    };
-    document.getElementById('btn-save-goal').onclick = async () => {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'annualGoal'), { value: parseInt(document.getElementById('input-annual-goal').value) });
-      alert('已更新');
-    };
-    document.getElementById('btn-trigger-import').onclick = () => document.getElementById('input-excel-file').click();
-    document.getElementById('input-excel-file').onchange = (e) => {
-      const file = e.target.files[0]; if(!file) return;
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        const wb = XLSX.read(evt.target.result, { type: 'binary' });
-        const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          if (row[0]) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'units'), { 
-            name: String(row[0]), address: String(row[1] || '暫無'), target: parseInt(row[2]) || 0 
-          });
-        }
-        alert('匯入成功');
-      };
-      reader.readAsBinaryString(file);
-    };
-    function xport(data, fn) {
-      if(!data.length) return alert('無資料');
-      const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, fn + ".xlsx");
-    }
-    document.getElementById('btn-export-personal').onclick = () => {
-      const name = localStorage.getItem('empName');
-      xport(state.data.assignments.filter(a => a.doctorName === name).map(m => ({
-        '日期': m.date, '時段': m.timePeriod, '具體時間': m.preciseTime, '單位': m.unitName, '地址': m.unitAddress
-      })), `${name}_行程`);
-    };
-    document.getElementById('btn-export-admin').onclick = () => {
-      xport(state.data.assignments.map(m => ({
-        '日期': m.date, '時段': m.timePeriod, '具體時間': m.preciseTime, '人員': m.doctorName, '單位': m.unitName
-      })), `總表`);
-    };
-    document.getElementById('btn-export-units').onclick = () => {
-      xport(state.data.units.map(u => ({ '單位': u.name, '地址': u.address, '目標': u.target })), `單位清單`);
-    };
-    document.getElementById('filter-month').onchange = () => renderUI();
+
+    document.getElementById('tab-doctor').onclick = () => { state.view = 'doctor'; renderUI(); };
+    document.getElementById('tab-admin').onclick = () => { state.view = 'admin'; renderUI(); };
+    document.getElementById('cal-prev').onclick = () => { state.currentMonth--; if(state.currentMonth < 0){state.currentMonth=11; state.displayYear--;} renderUI(); };
+    document.getElementById('cal-next').onclick = () => { state.currentMonth++; if(state.currentMonth > 11){state.currentMonth=0; state.displayYear++;} renderUI(); };
 
     init();
   </script>
